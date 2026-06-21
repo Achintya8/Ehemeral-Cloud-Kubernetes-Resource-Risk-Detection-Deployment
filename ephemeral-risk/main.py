@@ -99,14 +99,14 @@ async def debug_exception_handler(request: Request, exc: Exception):
 # Build the origin allow-list. Always permit local dev origins; additionally
 # permit any ngrok tunnel (https://*.ngrok-free.app / ngrok.io) so the
 # browser dashboard can talk to the server behind the tunnel.
-_allowed_origin_regex = r"https://[a-z0-9-]+\.ngrok(\-free)?\.app"
+_allowed_origin_regex = r"https://.*"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=_allowed_origin_regex,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
