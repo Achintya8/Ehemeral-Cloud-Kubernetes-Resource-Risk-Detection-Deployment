@@ -621,3 +621,19 @@ def fetch_incident_with_events(incident_id: str) -> Dict[str, Any] | None:
         return item
     finally:
         connection.close()
+
+def clear_all_events() -> None:
+    """Wipes all telemetry events, incidents, and action logs from the database."""
+    with _DB_LOCK:
+        connection = get_connection()
+        try:
+            connection.executescript(
+                """
+                DELETE FROM events;
+                DELETE FROM incidents;
+                DELETE FROM action_log;
+                """
+            )
+            connection.commit()
+        finally:
+            connection.close()

@@ -618,6 +618,19 @@ async def demo_traffic_loop():
             await k8s_event_queue.put(event)
 
 
+async def daily_cleanup_loop():
+    """Background task to wipe all database events every 24 hours."""
+    print("  [startup] Scheduled Daily Cleanup loop (every 24h)")
+    while True:
+        await asyncio.sleep(86400)  # 24 hours
+        print("  [cleanup] Running 24h data wipe...")
+        try:
+            database.clear_all_events()
+            print("  [cleanup] Database wiped successfully.")
+        except Exception as e:
+            print(f"  [cleanup] Error wiping database: {e}")
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
     init_db()
@@ -628,6 +641,9 @@ async def startup_event() -> None:
     # historical noise rows so dashboard counts are honest.
     _cleanup_false_positive_incidents()
     _reset_stale_noise_anomaly_flags()
+
+    # ── Scheduled daily cleanup ──────────────────────────────────────────────
+    asyncio.create_task(daily_cleanup_loop())
 
     # ── K8s watcher (fire-and-forget) ──────────────────────────────────────────
     if _kubeconfig_available():
