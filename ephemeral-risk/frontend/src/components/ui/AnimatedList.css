@@ -1,0 +1,74 @@
+.scroll-list-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.scroll-list {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.scroll-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-list::-webkit-scrollbar-thumb {
+  background: var(--sg-grey-200);
+  border-radius: 4px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.item {
+  padding: 16px;
+  background-color: var(--sg-white);
+  border: 1px solid var(--sg-grey-100);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.item.selected {
+  border-color: var(--sg-grey-300);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.item-text {
+  color: var(--sg-black);
+  margin: 0;
+}
+
+.top-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, var(--sg-white), transparent);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.bottom-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(to top, var(--sg-white), transparent);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}

@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+pandas
+scikit-learn
+networkx
+PyJWT
+passlib[bcrypt]
+bcrypt<5
+slowapi
+# sqlite3 is part of the Python standard library.
+pyngrok
+pydantic-settings
+httpx
+kubernetes

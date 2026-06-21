@@ -1,0 +1,90 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ci-build-simulator
+  namespace: ephemeral-test
+  labels:
+    app: ci-simulator
+    controller: cronjob
+    pattern: ci-cd
+    team: platform
+    ephemeral: "true"
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 60
+      activeDeadlineSeconds: 120
+      template:
+        metadata:
+          labels:
+            app: ci-simulator
+            controller: cronjob
+            pattern: ci-cd
+            ephemeral: "true"
+          annotations:
+            ephemeral.ttl/seconds: "120"
+            ephemeral.pattern/type: "ci-cd"
+            ephemeral.controller/name: "ci-build-simulator"
+        spec:
+          serviceAccountName: ci-simulator
+          restartPolicy: Never
+          containers:
+            - name: build
+              image: busybox:1.36
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "100m"
+                  memory: "128Mi"
+              env:
+                - name: BUILD_ID
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "[$(date -Iseconds)] Starting CI build simulation: $BUILD_ID"
+                  for i in $(seq 1 5); do
+                    echo "  Step $i: Compiling..."
+                    sleep 2
+                  done
+                  echo "[$(date -Iseconds)] Build complete"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ci-simulator
+  namespace: ephemeral-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ci-simulator
+  namespace: ephemeral-test
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-simulator
+  namespace: ephemeral-test
+subjects:
+  - kind: ServiceAccount
+    name: ci-simulator
+    namespace: ephemeral-test
+roleRef:
+  kind: Role
+  name: ci-simulator
+  apiGroup: rbac.authorization.k8s.io
+

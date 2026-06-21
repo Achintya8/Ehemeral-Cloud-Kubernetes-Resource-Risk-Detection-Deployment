@@ -1,0 +1,83 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ─── Virtual environments ─────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+
+# ─── Project: data directory ────────────────────────────────────────────────
+# Track the training/test datasets and ground truth so the model is
+# reproducible without re-running the generators.
+# Ignore only the auto-generated CSV exports and SQLite WAL sidecars.
+ephemeral-risk/data/exports/
+ephemeral-risk/data/*.csv
+ephemeral-risk/data/*.db-wal
+ephemeral-risk/data/*.db-shm
+# !-rules to be explicit: always track these files
+!ephemeral-risk/data/events.db
+!ephemeral-risk/data/test_events.db
+!ephemeral-risk/data/ground_truth.json
+!ephemeral-risk/data/test_ground_truth.json
+
+# ─── Project: runtime artefacts ──────────────────────────────────────────────
+*.log
+ephemeral-risk/critical_alerts.log
+ephemeral-risk/security_events.db
+
+# ─── ML model cache (regenerated at startup — do not commit) ─────────────────
+*.joblib
+ephemeral-risk/data/model_cache/
+
+
+# ─── Terraform: state & secrets (NEVER commit these) ─────────────────────────
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.backup
+**/*.tfplan
+**/tfplan
+**/.terraform.lock.hcl
+# Compiled Lambda deployment package
+**/lambda.zip
+**/*.zip
+
+# ─── Terraform: local override files ─────────────────────────────────────────
+terraform.tfvars
+*.auto.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ─── IDE ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+*.log
+*.txt
+
+
+# Environment files (contain secrets — never commit)
+.env
+.env.local
+*~
+ephemeral-risk/nul
+nul
+

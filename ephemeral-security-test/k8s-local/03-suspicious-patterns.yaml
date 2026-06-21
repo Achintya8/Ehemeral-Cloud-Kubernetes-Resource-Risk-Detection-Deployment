@@ -1,0 +1,155 @@
+# Suspicious: High-velocity pod creation (burst pattern)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: burst-creator
+  namespace: ephemeral-test
+  labels:
+    app: burst-creator
+    ephemeral: "true"
+spec:
+  schedule: "*/15 * * * *"
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 180
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: burst-creator
+          containers:
+            - name: burst
+              image: bitnami/kubectl:latest
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "100m"
+                  memory: "128Mi"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  for i in $(seq 1 5); do
+                    cat <<PODEOF | kubectl apply -f -
+                  apiVersion: v1
+                  kind: Pod
+                  metadata:
+                    name: burst-pod-$(date +%s)-$i
+                    namespace: ephemeral-test
+                    labels:
+                      app: burst
+                      ephemeral: "true"
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                    - name: work
+                      image: busybox:1.36
+                      resources:
+                        requests:
+                          cpu: "20m"
+                          memory: "32Mi"
+                      command: ["sh", "-c", "sleep 120 && echo done"]
+                  PODEOF
+                    sleep 2
+                  done
+                  echo "[$(date -Iseconds)] Burst creation complete"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: burst-creator
+  namespace: ephemeral-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: burst-creator
+  namespace: ephemeral-test
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: burst-creator
+  namespace: ephemeral-test
+subjects:
+  - kind: ServiceAccount
+    name: burst-creator
+    namespace: ephemeral-test
+roleRef:
+  kind: Role
+  name: burst-creator
+  apiGroup: rbac.authorization.k8s.io
+---
+# Suspicious: Reconnaissance behavior
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cluster-recon
+  namespace: ephemeral-test
+  labels:
+    app: cluster-recon
+    ephemeral: "true"
+spec:
+  ttlSecondsAfterFinished: 60
+  activeDeadlineSeconds: 120
+  template:
+    metadata:
+      labels:
+        app: cluster-recon
+        ephemeral: "true"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: cluster-recon
+      containers:
+        - name: recon
+          image: bitnami/kubectl:latest
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[$(date -Iseconds)] Starting reconnaissance simulation"
+              kubectl get pods --all-namespaces -o wide 2>/dev/null || true
+              kubectl get secrets --all-namespaces 2>/dev/null || true
+              kubectl get serviceaccounts --all-namespaces 2>/dev/null || true
+              echo "[$(date -Iseconds)] Reconnaissance complete"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cluster-recon
+  namespace: ephemeral-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-recon
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "secrets", "serviceaccounts", "namespaces"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-recon
+subjects:
+  - kind: ServiceAccount
+    name: cluster-recon
+    namespace: ephemeral-test
+roleRef:
+  kind: ClusterRole
+  name: cluster-recon
+  apiGroup: rbac.authorization.k8s.io
+

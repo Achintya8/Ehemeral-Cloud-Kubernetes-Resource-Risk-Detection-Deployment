@@ -1,0 +1,23 @@
+Cloud Security Anomaly Detection - Local Setup
+
+Install
+1. Create a virtual environment:
+py -m venv .venv
+
+2. Activate it in PowerShell:
+.\.venv\Scripts\Activate.ps1
+
+3. Install dependencies:
+py -m pip install --upgrade pip
+py -m pip install -r requirements.txt
+
+Build / Validate
+1. Quick syntax check:
+`py -m compileall .
+`
+2. Run the app locally:
+py -m uvicorn main:app --reload
+
+Notes
+- Run these commands from the `ephemeral-risk` folder.
+- The app serves the dashboard at http://127.0.0.1:8000
