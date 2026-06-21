@@ -3,7 +3,7 @@ import { normaliseIncident, decodeJWT } from '../utils';
 
 const WINDOW_SECONDS = 60;
 const MAX_EVENTS = 100;
-const API_BASE = "";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
 export function useAppLogic() {
   const [token, setToken] = useState(localStorage.getItem('authToken') || '');
@@ -94,7 +94,11 @@ export function useAppLogic() {
   const authFetch = useCallback(async (url, opts = {}) => {
     const headers = new Headers(opts.headers || {});
     headers.set("Authorization", `Bearer ${token}`);
-    const res = await fetch(url, { ...opts, headers });
+    
+    // Automatically prepend API_BASE if url is a relative path starting with /
+    const fullUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
+    
+    const res = await fetch(fullUrl, { ...opts, headers });
     if (res.status === 401) {
       doLogout();
       throw new Error("Session expired");
