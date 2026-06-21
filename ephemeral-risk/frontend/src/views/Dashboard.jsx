@@ -62,7 +62,6 @@ export default function Dashboard({ appState }) {
             </div>
             <div style={{display:'flex', alignItems:'center', gap:'14px', fontSize:'11px', color:'var(--sg-grey-500)'}}>
               <span style={{display:'flex', alignItems:'center', gap:'5px'}}><span style={{width:'8px', height:'8px', borderRadius:'50%', background:'#E2001A', display:'inline-block'}}></span>Events/s</span>
-              <span style={{display:'flex', alignItems:'center', gap:'5px'}}><span style={{width:'8px', height:'8px', borderRadius:'50%', background:'#CFCFCF', display:'inline-block'}}></span>Normal</span>
             </div>
           </div>
           <div className="chart-wrap">

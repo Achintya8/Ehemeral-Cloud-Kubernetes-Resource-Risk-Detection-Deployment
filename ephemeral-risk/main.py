@@ -580,40 +580,42 @@ async def demo_traffic_loop():
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         event_type = random.choice(["k8s_audit", "cloudtrail", "vpc_flow"])
         
-        # 5% chance to generate an anomalous event
+        # 5% chance to generate an anomalous event burst
         is_malicious = random.random() < 0.05
+        burst_size = random.randint(5, 15) if is_malicious else 1
         
-        event = {
-            "event_id": str(uuid4()),
-            "timestamp": now,
-            "log_type": event_type,
-            "severity": "INFO", 
-        }
-        
-        if event_type == "k8s_audit":
-            event["verb"] = "create" if not is_malicious else "delete"
-            event["resource_name"] = f"demo-pod-{uuid4().hex[:6]}"
-            event["namespace"] = "production"
-            event["username"] = "system" if not is_malicious else "unknown"
-            event["pod_ip"] = f"10.0.1.{random.randint(1,250)}" if not is_malicious else "198.51.100.42"
-            event["is_privileged"] = 1 if is_malicious else 0
-            event["action"] = event["verb"]
-        elif event_type == "cloudtrail":
-            event["event_source"] = "ec2.amazonaws.com"
-            event["event_name"] = "DescribeInstances" if not is_malicious else "RunInstances"
-            event["principal_id"] = "dev-user" if not is_malicious else "unknown"
-            event["arn"] = f"arn:aws:iam::123456789012:user/{event['principal_id']}"
-            event["source_ip"] = f"192.168.1.{random.randint(1,250)}" if not is_malicious else "203.0.113.55"
-            event["action"] = event["event_name"]
-        else:
-            event["src_addr"] = f"10.0.1.{random.randint(1,250)}"
-            event["dst_addr"] = f"10.0.2.{random.randint(1,250)}" if not is_malicious else "185.220.101.47"
-            event["src_port"] = random.randint(1024, 65535)
-            event["dst_port"] = 443 if not is_malicious else random.choice([3333, 4444])
-            event["bytes"] = random.randint(100, 5000) if not is_malicious else random.randint(50000, 500000)
-            event["action"] = "ACCEPT"
+        for _ in range(burst_size):
+            event = {
+                "event_id": str(uuid4()),
+                "timestamp": now,
+                "log_type": event_type,
+                "severity": "INFO", 
+            }
             
-        await k8s_event_queue.put(event)
+            if event_type == "k8s_audit":
+                event["verb"] = "create" if not is_malicious else "delete"
+                event["resource_name"] = f"demo-pod-{uuid4().hex[:6]}"
+                event["namespace"] = "production"
+                event["username"] = "system" if not is_malicious else "unknown"
+                event["pod_ip"] = f"10.0.1.{random.randint(1,250)}" if not is_malicious else "198.51.100.42"
+                event["is_privileged"] = 1 if is_malicious else 0
+                event["action"] = event["verb"]
+            elif event_type == "cloudtrail":
+                event["event_source"] = "ec2.amazonaws.com"
+                event["event_name"] = "DescribeInstances" if not is_malicious else "RunInstances"
+                event["principal_id"] = "dev-user" if not is_malicious else "unknown"
+                event["arn"] = f"arn:aws:iam::123456789012:user/{event['principal_id']}"
+                event["source_ip"] = f"192.168.1.{random.randint(1,250)}" if not is_malicious else "203.0.113.55"
+                event["action"] = event["event_name"]
+            else:
+                event["src_addr"] = f"10.0.1.{random.randint(1,250)}"
+                event["dst_addr"] = f"10.0.2.{random.randint(1,250)}" if not is_malicious else "185.220.101.47"
+                event["src_port"] = random.randint(1024, 65535)
+                event["dst_port"] = 443 if not is_malicious else random.choice([3333, 4444])
+                event["bytes"] = random.randint(100, 5000) if not is_malicious else random.randint(50000, 500000)
+                event["action"] = "ACCEPT"
+                
+            await k8s_event_queue.put(event)
 
 
 @app.on_event("startup")
