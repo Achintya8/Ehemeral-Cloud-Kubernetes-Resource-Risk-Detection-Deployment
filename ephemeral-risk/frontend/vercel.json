@@ -1,0 +1,9 @@
+{
+    "buildCommand": "vite build",
+    "outputDirectory": "dist",
+    "build": {
+        "env": {
+            "VERCEL": "1"
+        }
+    }
+}

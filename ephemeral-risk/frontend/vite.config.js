@@ -10,15 +10,16 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base: '/static/',
+  // Check Vercel or CI environments reliably
+  base: (process.env.VERCEL || process.env.VERCEL_ENV || process.env.CI) ? '/' : '/static/',
   build: {
-    outDir: '../static',
+    outDir: (process.env.VERCEL || process.env.VERCEL_ENV || process.env.CI) ? 'dist' : '../static',
     emptyOutDir: true,
   },
   server: {
     proxy: {
-      '/login':  'http://127.0.0.1:8000',
-      '/api':    'http://127.0.0.1:8000',
+      '/login': 'http://127.0.0.1:8000',
+      '/api': 'http://127.0.0.1:8000',
       '/stream': 'http://127.0.0.1:8000',
     },
   },
