@@ -24,6 +24,7 @@ import sys
 import time
 import uuid
 import requests
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -53,7 +54,7 @@ def get_db() -> sqlite3.Connection:
     return conn
 
 PROCESSED_EVENT_IDS = set()
-FASTAPI_INGEST_URL = "http://127.0.0.1:8000/api/ingest"
+FASTAPI_INGEST_URL = os.environ.get("FASTAPI_INGEST_URL", "http://127.0.0.1:8000/api/ingest")
 
 
 def init_ingestor_tables() -> None:

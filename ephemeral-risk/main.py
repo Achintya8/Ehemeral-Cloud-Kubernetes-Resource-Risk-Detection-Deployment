@@ -572,8 +572,50 @@ async def k8s_queue_processor():
 
 async def start_k8s_watcher():
     loop = asyncio.get_running_loop()
-    # Run the blocking sync function in a background thread
-    await asyncio.to_thread(k8s_watcher_sync, k8s_event_queue, loop)
+async def demo_traffic_loop():
+    """Background task to keep the dashboard alive with a steady stream of synthetic events."""
+    print("  [startup] Starting Live Demo Generator (1 event every 10-15s)")
+    while True:
+        await asyncio.sleep(random.uniform(10, 15))
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        event_type = random.choice(["k8s_audit", "cloudtrail", "vpc_flow"])
+        
+        # 5% chance to generate an anomalous event
+        is_malicious = random.random() < 0.05
+        
+        event = {
+            "event_id": str(uuid4()),
+            "timestamp": now,
+            "log_type": event_type,
+            "severity": "INFO", 
+        }
+        
+        if event_type == "k8s_audit":
+            event["verb"] = "create" if not is_malicious else "delete"
+            event["resource_name"] = f"demo-pod-{uuid4().hex[:6]}"
+            event["namespace"] = "production"
+            event["username"] = "system" if not is_malicious else "unknown-attacker"
+            event["pod_ip"] = f"10.0.1.{random.randint(1,250)}"
+            event["is_privileged"] = 1 if is_malicious else 0
+            event["action"] = event["verb"]
+        elif event_type == "cloudtrail":
+            event["event_source"] = "ec2.amazonaws.com"
+            event["event_name"] = "DescribeInstances" if not is_malicious else "RunInstances"
+            event["principal_id"] = "dev-user" if not is_malicious else "compromised-key"
+            event["arn"] = f"arn:aws:iam::123456789012:user/{event['principal_id']}"
+            event["source_ip"] = f"192.168.1.{random.randint(1,250)}"
+            event["action"] = event["event_name"]
+        else:
+            event["src_addr"] = f"10.0.1.{random.randint(1,250)}"
+            event["dst_addr"] = f"10.0.2.{random.randint(1,250)}"
+            event["src_port"] = random.randint(1024, 65535)
+            event["dst_port"] = 443 if not is_malicious else random.choice([3333, 4444])
+            event["bytes"] = random.randint(100, 5000) if not is_malicious else random.randint(50000, 500000)
+            event["action"] = "ACCEPT"
+            
+        await k8s_event_queue.put(event)
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
     init_db()
@@ -594,6 +636,10 @@ async def startup_event() -> None:
         )
     else:
         print("  [startup] No kubeconfig — live K8s ingestion disabled.")
+        # Start the queue processor anyway so it can process demo traffic and /api/ingest
+        asyncio.create_task(k8s_queue_processor())
+        # Start the demo traffic generator to keep the deployed site alive
+        asyncio.create_task(demo_traffic_loop())
 
     # ── Model: try loading cached model; no training here ────────────────────
     # Run `python seed_telemetry.py` separately to train + seed data.
@@ -676,6 +722,17 @@ async def api_health(request: Request, _: Dict[str, Any] = Depends(get_current_u
 @limiter.limit("60/minute")
 async def api_system_stats(request: Request, _: Dict[str, Any] = Depends(require_admin)) -> JSONResponse:
     return JSONResponse({"database": database_stats(), "model": get_pipeline_stats()})
+
+
+@app.post("/api/ingest")
+@limiter.limit("300/minute")
+async def api_ingest(request: Request, payload: Dict[str, Any]) -> JSONResponse:
+    """Endpoint for live_ingester.py to send telemetry events."""
+    try:
+        await k8s_event_queue.put(payload)
+        return JSONResponse({"status": "queued"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/pipelines")
