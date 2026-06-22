@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { sevStyle, normaliseIncident } from '../utils';
 
 const SPINNER_SVG = (
@@ -35,6 +35,68 @@ function severityTopBar(sev) {
   return '#6B7280';
 }
 
+/* Build a structured triage narrative locally from the incident's own data.
+   Used as a fallback when the live AI endpoint (/narrative) is unreachable,
+   slow, or returns an error — so every incident always shows useful content. */
+function buildFallbackNarrative(inc) {
+  if (!inc) return null;
+  const ev = inc.correlated_evidence || {};
+  const scenario = String(inc.scenario || '').toLowerCase();
+  const sev = String(inc.severity || 'MEDIUM').toUpperCase();
+  const score = Math.round(Number(inc.risk_score || 0));
+  const events = inc.events || [];
+
+  const isHijack   = /hijack|crypto|mining|miner|resource/.test(scenario);
+  const isExposure = /exposure|public|nodeport|ingress|expose/.test(scenario);
+  const isIdentity = /identity|token|account|assume|role|rbac|session/.test(scenario);
+
+  const notUnknown = (v) => v && String(v).trim() && String(v).toLowerCase() !== 'unknown';
+
+  const evidence = [];
+  if (notUnknown(ev.who))       evidence.push(`Principal / identity: ${ev.who}`);
+  if (notUnknown(ev.what))      evidence.push(`Observed activity: ${ev.what}`);
+  if (notUnknown(ev.where))     evidence.push(`Location / scope: ${ev.where}`);
+  if (notUnknown(ev.when))      evidence.push(`First observed: ${ev.when}`);
+  if (notUnknown(ev.why_risky)) evidence.push(ev.why_risky);
+  if (events.length) {
+    const anomalous = events.filter(e => e.is_anomaly).length;
+    evidence.push(`${events.length} correlated telemetry event(s)${anomalous ? `, ${anomalous} flagged anomalous,` : ''} observed across the campaign window.`);
+  }
+  if (notUnknown(inc.intent_summary)) evidence.push(`Inferred intent: ${inc.intent_summary}`);
+  evidence.push(`Aggregate risk score ${score}/100 — classified ${sev}.`);
+
+  let mitre = Array.isArray(inc.mitre_tactics) && inc.mitre_tactics.length ? [...inc.mitre_tactics] : [];
+  if (!mitre.length) {
+    if (isHijack)        mitre = ['T1496 — Resource Hijacking (Impact)', 'T1578 — Modify Cloud Compute Infrastructure'];
+    else if (isExposure) mitre = ['T1190 — Exploit Public-Facing Application', 'T1133 — External Remote Services'];
+    else if (isIdentity) mitre = ['T1078.004 — Valid Accounts: Cloud Accounts'];
+    else                 mitre = ['T1078 — Valid Accounts'];
+  }
+
+  const nist = ['SI-4 — Information System Monitoring', 'IR-4 — Incident Handling'];
+  if (isIdentity) nist.push('AC-2 — Account Management');
+  if (isExposure) nist.push('CM-8 — System Component Inventory', 'SC-7 — Boundary Protection');
+  if (isHijack)   nist.push('CM-8 — System Component Inventory');
+
+  let cis = [];
+  if (isHijack)        cis = ['CIS Kubernetes 5.2 — Pod Security Standards', 'CIS Cloud — Monitoring & Logging'];
+  else if (isExposure) cis = ['CIS Kubernetes 5.1 — RBAC & Service Accounts', 'CIS Cloud — Networking'];
+  else if (isIdentity) cis = ['CIS Cloud — Identity & Access Management'];
+  else                 cis = ['CIS Kubernetes 5.x — Policies'];
+
+  let recommended_action;
+  if (sev === 'CRITICAL') {
+    recommended_action = 'Automated zero-trust containment applied: workload isolated, network quarantine enforced, and node cordoned. Verify blast radius, rotate any potentially exposed credentials, and confirm the source principal is fully revoked.';
+  } else {
+    const actions = (inc.clear_actions && inc.clear_actions.length)
+      ? inc.clear_actions.join(', ').toLowerCase()
+      : 'contain affected pods, revoke credentials, enforce network guardrails';
+    recommended_action = `Triage the correlated resources, ${actions}, and confirm whether the activity is sanctioned (e.g. legitimate autoscale / CI-CD) before closing the incident.`;
+  }
+
+  return { evidence, mitre_mapping: mitre, nist_mapping: nist, cis_mapping: cis, recommended_action };
+}
+
 /* ── component ──────────────────────────────────────────────── */
 
 export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, authFetch, addToast, onClose }) {
@@ -47,18 +109,28 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
   const [aiNarrative, setAiNarrative] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
+  const [aiFallback, setAiFallback] = useState(false);
   const [showData, setShowData] = useState(false);
   const [feedbackComments, setFeedbackComments] = useState("");
   const [showDisapproveInput, setShowDisapproveInput] = useState(false);
 
-  /* fetch full incident + events from API */
+  /* Always-current reference to the best incident data we have (server detail
+     if loaded, otherwise the seed from the card). Lets the narrative effect
+     build a fallback without re-subscribing to seed changes. */
+  const incRef = useRef(null);
+  incRef.current = detail || incidentSeed || null;
+
+  /* fetch full incident + events from API. A client-side timeout guarantees we
+     never hang on "Loading…" — the modal falls back to the seed card data. */
   useEffect(() => {
     if (!isOpen || !incidentId) return;
     let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
     setLoading(true);
     setError(null);
 
-    authFetch(`/api/incidents/${encodeURIComponent(incidentId)}`)
+    authFetch(`/api/incidents/${encodeURIComponent(incidentId)}`, { signal: controller.signal })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -73,44 +145,71 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
       .catch(err => {
         if (!cancelled) setError(err.message || 'Failed to load incident');
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => { clearTimeout(timeoutId); if (!cancelled) setLoading(false); });
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); clearTimeout(timeoutId); };
   }, [isOpen, incidentId, authFetch]);
 
-  /* generate AI Analyst Narrative */
+  /* generate AI Analyst Narrative. If the live AI endpoint is unreachable,
+     slow (client-side 12s timeout), or returns unusable content, we synthesize
+     a structured narrative from the incident data so content always renders. */
   useEffect(() => {
     if (!isOpen || !incidentId) {
       setAiNarrative('');
       setAiLoading(false);
       setAiError(null);
+      setAiFallback(false);
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
     setAiLoading(true);
     setAiError(null);
     setAiNarrative('');
+    setAiFallback(false);
+
+    const useFallback = () => {
+      const fb = buildFallbackNarrative(incRef.current);
+      if (fb) {
+        setAiNarrative(JSON.stringify(fb));
+        setAiFallback(true);
+      } else {
+        setAiError('Failed to generate narrative');
+      }
+    };
 
     authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/narrative`, {
-      method: 'POST'
+      method: 'POST',
+      signal: controller.signal,
     })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
       .then(data => {
-        if (!cancelled) {
-          setAiNarrative(data.narrative || 'No narrative generated.');
+        if (cancelled) return;
+        // Accept the live narrative only if it carries usable content.
+        let ok = false;
+        const narr = data.narrative;
+        if (narr) {
+          try {
+            const p = JSON.parse(narr);
+            ok = !!(p && ((p.evidence && p.evidence.length) || p.recommended_action));
+          } catch { ok = false; }
         }
+        if (ok) setAiNarrative(narr);
+        else useFallback();
       })
-      .catch(err => {
-        if (!cancelled) setAiError(err.message || 'Failed to generate narrative');
+      .catch(() => {
+        if (!cancelled) useFallback();
       })
       .finally(() => {
+        clearTimeout(timeoutId);
         if (!cancelled) setAiLoading(false);
       });
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); clearTimeout(timeoutId); };
   }, [isOpen, incidentId, authFetch]);
 
   /* close handlers */
@@ -122,6 +221,7 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
     setAiNarrative('');
     setAiLoading(false);
     setAiError(null);
+    setAiFallback(false);
     setShowData(false);
     setFeedbackComments("");
     setShowDisapproveInput(false);
@@ -229,7 +329,7 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
   const scenario = inc?.scenario || null;
   const mitreTactics = inc?.mitre_tactics || [];
   const intentSummary = inc?.intent_summary || '';
-  const events = detail?.events || [];
+  const events = detail?.events || inc?.events || [];
 
   return (
     <div className="modal-backdrop" onClick={handleBackdrop} style={{ zIndex: 1100 }}>
@@ -256,21 +356,21 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
 
         {/* body — scrollable */}
         <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
-          {/* loading / error states */}
-          {loading && (
+          {/* Only show the blocking loader/error when we have NO incident data
+              at all. If a seed exists we render content immediately below. */}
+          {loading && !inc && (
             <div style={{ textAlign: 'center', padding: '32px', color: 'var(--sg-grey-400)' }}>
               {SPINNER_SVG} Loading incident detail…
             </div>
           )}
-          {error && !loading && (
+          {error && !loading && !inc && (
             <div style={{ textAlign: 'center', padding: '24px', color: '#DC2626', background: '#FEF2F2', borderRadius: '8px' }}>
               <strong>Error:</strong> {error}
             </div>
           )}
 
           {/* content */}
-          {/* content */}
-          {!loading && inc && (
+          {inc && (
             <>
               {/* Loading State */}
               {aiLoading && (
@@ -303,6 +403,12 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
                   }
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {aiFallback && (
+                        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--sg-grey-400)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                          Generated from correlated telemetry — live AI service unavailable
+                        </div>
+                      )}
                       {/* Box 1: Technical Evidence */}
                       {parsed.evidence && parsed.evidence.length > 0 && (
                         <div className="panel" style={{ padding: '20px', background: '#FFFFFF', border: '1px solid var(--sg-grey-200)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
@@ -470,7 +576,7 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
         </div>
 
         {/* footer — remediation actions */}
-        {!loading && inc && (
+        {inc && (
           <div className="modal-footer" style={{ flexShrink: 0, flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
               <button type="button" className="action-btn" onClick={handleClose}>Close</button>

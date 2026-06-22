@@ -98,7 +98,11 @@ export function useAppLogic() {
       if (updated.length > MAX_EVENTS) updated.length = MAX_EVENTS;
       return updated;
     });
-    bucketEvent(record.timestamp);
+    // Bucket live events by arrival time, not their own timestamp. Sources like
+    // event_simulator.py backdate events across a 2h window, which would place
+    // them outside the rolling 60s window and leave the chart flat at 0.
+    // Arrival time is what a live "Events/s" throughput chart should reflect.
+    bucketEvent(Date.now());
   }, [bucketEvent]);
 
   const pushIncident = useCallback((raw) => {
