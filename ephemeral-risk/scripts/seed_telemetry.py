@@ -30,7 +30,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent  # repo root (ephemeral-risk/)
 
 
 # ── Resource catalogues (single source of truth) ──────────────────────────────

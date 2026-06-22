@@ -699,6 +699,16 @@ async def startup_event() -> None:
     _cleanup_false_positive_incidents()
     _reset_stale_noise_anomaly_flags()
 
+    # ── Fresh slate on startup ──────────────────────────────────────────────
+    # Wipe all events/incidents/action_logs so the dashboard starts clean
+    # before the integrated simulator repopulates it.
+    try:
+        from backend.database import clear_all_events
+        clear_all_events()
+        print("  [startup] Database cleared — fresh slate for simulator.")
+    except Exception as e:
+        print(f"  [startup] Could not clear DB: {e}")
+
     # ── Scheduled daily cleanup ──────────────────────────────────────────────
     asyncio.create_task(daily_cleanup_loop())
 
@@ -711,10 +721,15 @@ async def startup_event() -> None:
         )
     else:
         print("  [startup] Live K8s ingestion disabled.")
-        # Start the queue processor anyway so it can process /api/ingest events
+        # Start the queue processor so it can process events from /api/ingest
+        # and the integrated simulator.
         asyncio.create_task(k8s_queue_processor())
-        # NOTE: demo_traffic_loop is DISABLED — use event_simulator.py instead
-        # asyncio.create_task(demo_traffic_loop())
+        # ── Integrated event simulator ────────────────────────────────────────
+        # Generates ~500 realistic events per cycle (all 6 types), feeds them
+        # through the full ML pipeline, then clears + repeats. This is the
+        # ONLY event source — the old demo_traffic_loop is disabled.
+        from backend.simulator import simulator_loop
+        asyncio.create_task(simulator_loop(k8s_event_queue))
 
 
     # ── Model: try loading cached model; no training here ────────────────────
