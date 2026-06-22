@@ -711,10 +711,10 @@ async def startup_event() -> None:
         )
     else:
         print("  [startup] Live K8s ingestion disabled.")
-        # Start the queue processor anyway so it can process demo traffic and /api/ingest
+        # Start the queue processor anyway so it can process /api/ingest events
         asyncio.create_task(k8s_queue_processor())
-        # Start the demo traffic generator to keep the deployed site alive
-        asyncio.create_task(demo_traffic_loop())
+        # NOTE: demo_traffic_loop is DISABLED — use event_simulator.py instead
+        # asyncio.create_task(demo_traffic_loop())
 
 
     # ── Model: try loading cached model; no training here ────────────────────
@@ -1340,6 +1340,27 @@ async def delete_event_endpoint(
         status_code=status.HTTP_200_OK,
         content={"status": "success", "message": "Successfully deleted"}
     )
+
+
+@app.post("/api/admin/clear")
+@limiter.limit("5/minute")
+async def admin_clear_database(
+    request: Request,
+    _: Dict[str, Any] = Depends(require_admin),
+) -> JSONResponse:
+    """Admin-only endpoint to wipe all events, incidents, and action logs."""
+    from backend.database import clear_all_events
+    try:
+        clear_all_events()
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"status": "success", "message": "Database cleared"}
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"status": "error", "message": str(e)}
+        )
 
 
 @app.get("/api/recent-incidents")
