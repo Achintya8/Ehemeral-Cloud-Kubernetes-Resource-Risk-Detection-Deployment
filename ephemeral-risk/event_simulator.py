@@ -589,11 +589,24 @@ def send_events(events: List[Dict[str, Any]], token: str | None) -> int:
 
     total_sent = 0
     failed = 0
-    batch_size = 10  # Send in small rapid-fire batches
+    n = len(events)
+    i = 0
 
-    for i in range(0, len(events), batch_size):
-        batch = events[i:i + batch_size]
-        for event in batch:
+    # Send in irregular "waves" instead of one continuous block. Each wave is
+    # fired rapidly (lands as a spike) and is followed by a short pause so the
+    # backend drains and the live timeline dips back toward zero — giving the
+    # Event Timeline more frequent spikes now and then.
+    while i < n:
+        # ~30% of waves are bigger "spike" waves; the rest are gentle bumps.
+        if random.random() < 0.30:
+            wave_size = random.randint(30, 55)
+        else:
+            wave_size = random.randint(8, 20)
+
+        wave = events[i:i + wave_size]
+        i += wave_size
+
+        for event in wave:
             try:
                 resp = requests.post(INGEST_URL, headers=headers, json=event, timeout=15)
                 if resp.status_code in (200, 202):
@@ -606,11 +619,14 @@ def send_events(events: List[Dict[str, Any]], token: str | None) -> int:
                 failed += 1
                 if failed <= 5:
                     print(f"[SEND] ❌ Error: {e}")
+            time.sleep(random.uniform(0.02, 0.08))  # tight intra-wave spacing
 
         # Progress indicator
-        pct = min(100, ((i + batch_size) / len(events)) * 100)
+        pct = min(100, (i / n) * 100)
         print(f"[SEND] 📊 {pct:5.1f}% — Sent {total_sent}, Failed {failed}")
-        time.sleep(0.2)  # Small delay between batches
+
+        # Pause between waves so each wave shows as a distinct spike.
+        time.sleep(random.uniform(1.5, 4.0))
 
     print(f"[SEND] ✅ Complete: {total_sent} sent, {failed} failed")
     return total_sent
