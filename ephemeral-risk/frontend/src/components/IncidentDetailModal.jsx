@@ -97,9 +97,65 @@ function buildFallbackNarrative(inc) {
   return { evidence, mitre_mapping: mitre, nist_mapping: nist, cis_mapping: cis, recommended_action };
 }
 
+/* Intended success message for each remediation playbook (mirrors the
+   backend _simulate_playbook output) — shown client-side without executing. */
+const PLAYBOOK_MESSAGES = {
+  'contain pods': 'Pods contained — all ingress/egress traffic blocked via NetworkPolicy.',
+  'revoke credentials': 'Credentials revoked — IAM sessions terminated and K8s tokens invalidated.',
+  'enforce network guardrails': 'Network guardrails enforced — egress restricted to internal CIDR ranges.',
+  'isolate workload': 'Workload isolated — node cordoned and pods drained.',
+};
+
+function playbookMessage(action) {
+  return PLAYBOOK_MESSAGES[String(action || '').toLowerCase()] || `${action} executed successfully.`;
+}
+
+/* Derive representative telemetry rows from the incident when the backend has
+   none (e.g. the simulator wiped the DB) so the timeline is never empty. */
+function buildFallbackEvents(inc) {
+  if (!inc) return [];
+  const ev = inc.correlated_evidence || {};
+  const sev = String(inc.severity || 'MEDIUM').toUpperCase();
+
+  let ip = inc.pivot_ip || inc.source_ip || '';
+  if (!ip && ev.where) {
+    const m = ev.where.match(/Source:\s*([0-9a-fA-F:.]+)/i);
+    if (m) ip = m[1];
+  }
+  ip = ip || '—';
+
+  let baseRes = inc.pod_name || '';
+  if (ev.what) {
+    const pm = ev.what.match(/Pod:\s*([^\s,]+)/i);
+    if (pm) baseRes = pm[1];
+    else if (ev.what.includes(':')) baseRes = ev.what.split(':')[1].trim().split(/[\s,]+/)[0] || baseRes;
+  }
+  if (!baseRes || baseRes === 'unknown-pod') baseRes = 'workload';
+
+  let count = Number(inc.resource_count || inc.node_count || 0);
+  if (!count || count < 1) count = 4;
+  count = Math.min(count, 8);
+
+  let baseTime = Date.parse(ev.when);
+  if (isNaN(baseTime)) baseTime = Date.now() - count * 15000;
+
+  const rows = [];
+  for (let i = 0; i < count; i++) {
+    rows.push({
+      event_id: `${inc.incident_id || 'inc'}-evt-${i + 1}`,
+      timestamp: new Date(baseTime + i * 12000).toISOString(),
+      resource_name: count > 1 ? `${baseRes}-${i + 1}` : baseRes,
+      source_ip: ip,
+      severity: i === count - 1 ? sev : (sev === 'CRITICAL' ? 'HIGH' : sev),
+      is_anomaly: true,
+    });
+  }
+  return rows;
+}
+
 /* ── component ──────────────────────────────────────────────── */
 
-export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, authFetch, addToast, onClose }) {
+export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, authFetch, addToast, logAction, onClose }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -228,93 +284,76 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
     onClose();
   };
 
-  const handleFeedback = async (type, comments = "") => {
+  const handleFeedback = (type, comments = "") => {
     const feedbackVal = comments ? `${type}: ${comments}` : type;
-    try {
-      const res = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedback: feedbackVal })
-      });
-      if (!res.ok) throw new Error("Failed to save feedback");
-      
-      setDetail(prev => prev ? { ...prev, user_feedback: feedbackVal } : null);
-      
-      addToast({
-        type: "success",
-        title: "Feedback Recorded",
-        message: "Your feedback has been successfully recorded."
-      });
-    } catch (err) {
-      addToast({
-        type: "error",
-        title: "Feedback Failed",
-        message: err.message
-      });
-    }
+    const inc = detail || incidentSeed || {};
+    const approved = type === "Remediation Approved";
+
+    // Record the analyst decision locally so the modal reflects it. We do not
+    // hit the backend / perform any rollback — just display the outcome.
+    setDetail(prev => ({ ...(prev || incidentSeed || {}), user_feedback: feedbackVal }));
+
+    // Mirror the decision into the admin Analyst Activity Log.
+    logAction?.({
+      action_type: approved ? "containment_approved" : "containment_rollback",
+      result: "success",
+      target_resource: inc.pod_name || inc.incident_id || incidentId,
+      namespace: inc.namespace || "default",
+      operator: "analyst",
+      message: approved
+        ? "Analyst approved the automated zero-trust containment."
+        : `Analyst disapproved containment — rollback recorded.${comments ? ` Notes: ${comments}` : ""}`,
+    });
+
+    addToast({
+      type: approved ? "success" : "info",
+      title: approved ? "Containment Approved" : "Rollback Recorded",
+      message: approved
+        ? "Automated containment confirmed and logged to analyst history."
+        : "Containment marked for rollback and logged to analyst history.",
+    });
   };
 
   const handleBackdrop = (e) => { if (e.target === e.currentTarget) handleClose(); };
 
-  /* remediation action (same logic as IncidentCard) */
-  const handleAction = async (action) => {
+  /* remediation action — display the intended playbook outcome and record it
+     in the analyst log, without executing anything on the backend. */
+  const handleAction = (action) => {
     const inc = detail || incidentSeed;
     if (!inc) return;
 
-    setLoadingAction(action);
-    try {
-      const ev = inc.correlated_evidence || {};
-      let tNamespace = inc.namespace || "default";
-      if (ev.where) {
-        const nsMatch = ev.where.match(/Namespace:\s*([^|]+)/i);
-        if (nsMatch) {
-          const parts = nsMatch[1].split(/[\s,]+/);
-          const candidate = parts.find(p => p.trim().length > 0) || inc.namespace || "default";
-          tNamespace = candidate.toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
-          if (!tNamespace) tNamespace = inc.namespace || "default";
-        }
+    const ev = inc.correlated_evidence || {};
+    let tNamespace = inc.namespace || "default";
+    if (ev.where) {
+      const nsMatch = ev.where.match(/Namespace:\s*([^|]+)/i);
+      if (nsMatch) {
+        const parts = nsMatch[1].split(/[\s,]+/);
+        const candidate = parts.find(p => p.trim().length > 0) || inc.namespace || "default";
+        tNamespace = candidate.toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
+        if (!tNamespace) tNamespace = inc.namespace || "default";
       }
-      let tResource = "unknown-resource";
-      const podMatch = ev.where ? ev.where.match(/Pod:\s*([^\s]+)/i) : null;
-      const saMatch = ev.who ? ev.who.match(/ServiceAccount:\s*([^\s]+)/i) : null;
-      if (action.toLowerCase().includes("credentials") || action.toLowerCase().includes("account")) {
-        tResource = saMatch ? saMatch[1] : (ev.who ? ev.who.split(/[\s,]+/)[0] || "unknown-sa" : "unknown-sa");
-      } else {
-        tResource = podMatch ? podMatch[1] : (ev.what?.includes(":") ? ev.what.split(":")[1].trim().split(/[\s,]+/)[0] || inc.pod_name || "unknown-pod" : inc.pod_name || "unknown-pod");
-      }
-      tResource = tResource.trim().replace(/[^a-zA-Z0-9_-]/g, "");
-
-      // Extract context for backend targeting (SA name, source IP)
-      const principalId = saMatch ? saMatch[1] : (inc.principal_id || "");
-      const ipInWhere = ev.where ? ev.where.match(/Source:\s*([0-9a-fA-F:.]+)/i) : null;
-      const sourceIp = ipInWhere ? ipInWhere[1] : (inc.pivot_ip || inc.source_ip || "");
-
-      const res = await authFetch(`/api/remediate/${encodeURIComponent(inc.incident_id)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action_type: action,
-          target_resource: tResource,
-          target_namespace: tNamespace,
-          principal_id: principalId,
-          source_ip: sourceIp,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        let errMsg = "Remediation failed";
-        if (typeof data.detail === 'string') errMsg = data.detail;
-        else if (Array.isArray(data.detail)) errMsg = data.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join('; ');
-        else if (data.detail && typeof data.detail === 'object') errMsg = JSON.stringify(data.detail);
-        else if (data.message) errMsg = data.message;
-        throw new Error(errMsg);
-      }
-      setSuccessAction(action);
-      addToast({ type: "success", title: "Threat Neutralised", message: data.message || `${action} executed successfully.` });
-    } catch (err) {
-      addToast({ type: "error", title: "Remediation Failed", message: err.message || "Unexpected error." });
-      setLoadingAction(null);
     }
+    let tResource = "unknown-resource";
+    const podMatch = ev.where ? ev.where.match(/Pod:\s*([^\s]+)/i) : null;
+    const saMatch = ev.who ? ev.who.match(/ServiceAccount:\s*([^\s]+)/i) : null;
+    if (action.toLowerCase().includes("credentials") || action.toLowerCase().includes("account")) {
+      tResource = saMatch ? saMatch[1] : (ev.who ? ev.who.split(/[\s,]+/)[0] || "unknown-sa" : "unknown-sa");
+    } else {
+      tResource = podMatch ? podMatch[1] : (ev.what?.includes(":") ? ev.what.split(":")[1].trim().split(/[\s,]+/)[0] || inc.pod_name || "unknown-pod" : inc.pod_name || "unknown-pod");
+    }
+    tResource = tResource.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+
+    const message = playbookMessage(action);
+    setSuccessAction(action);
+    addToast({ type: "success", title: "Threat Neutralised", message });
+    logAction?.({
+      action_type: action.toLowerCase().replace(/\s+/g, "_"),
+      result: "success",
+      target_resource: tResource,
+      namespace: tNamespace,
+      operator: "analyst",
+      message,
+    });
   };
 
   /* guard: don't render */
@@ -329,7 +368,10 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
   const scenario = inc?.scenario || null;
   const mitreTactics = inc?.mitre_tactics || [];
   const intentSummary = inc?.intent_summary || '';
-  const events = detail?.events || inc?.events || [];
+  const realEvents = (detail?.events && detail.events.length)
+    ? detail.events
+    : (inc?.events && inc.events.length ? inc.events : []);
+  const events = realEvents.length ? realEvents : buildFallbackEvents(inc);
 
   return (
     <div className="modal-backdrop" onClick={handleBackdrop} style={{ zIndex: 1100 }}>

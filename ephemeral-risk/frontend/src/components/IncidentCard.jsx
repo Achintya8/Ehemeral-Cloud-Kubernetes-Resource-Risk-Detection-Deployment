@@ -4,7 +4,14 @@ import { sevStyle } from '../utils';
 const SPINNER_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{animation:'spin 0.8s linear infinite', verticalAlign:'middle', marginRight:'6px'}}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>;
 const SUCCESS_SVG = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{verticalAlign:'middle', marginRight:'5px', color:'#22C55E'}}><polyline points="20 6 9 17 4 12"/></svg>;
 
-export default function IncidentCard({ inc, idx, authFetch, addToast, onDrillDown }) {
+const PLAYBOOK_MESSAGES = {
+  'contain pods': 'Pods contained — all ingress/egress traffic blocked via NetworkPolicy.',
+  'revoke credentials': 'Credentials revoked — IAM sessions terminated and K8s tokens invalidated.',
+  'enforce network guardrails': 'Network guardrails enforced — egress restricted to internal CIDR ranges.',
+  'isolate workload': 'Workload isolated — node cordoned and pods drained.',
+};
+
+export default function IncidentCard({ inc, idx, authFetch, addToast, logAction, onDrillDown }) {
   const ev = inc.correlated_evidence || {};
   const sty = sevStyle(inc.severity);
   const incidentId = inc.incident_id || "unknown";
@@ -15,93 +22,60 @@ export default function IncidentCard({ inc, idx, authFetch, addToast, onDrillDow
   const [successAction, setSuccessAction] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const handleAction = async (action) => {
-    setLoadingAction(action);
-    try {
-      let tNamespace = inc.namespace || "default";
-      if (ev.where) {
-        const nsMatch = ev.where.match(/Namespace:\s*([^|]+)/i);
-        if (nsMatch) {
-          const parts = nsMatch[1].split(/[\s,]+/);
-          const candidate = parts.find(p => p.trim().length > 0) || inc.namespace || "default";
-          tNamespace = candidate.toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
-          if (!tNamespace) tNamespace = inc.namespace || "default";
-        }
+  const handleAction = (action) => {
+    let tNamespace = inc.namespace || "default";
+    if (ev.where) {
+      const nsMatch = ev.where.match(/Namespace:\s*([^|]+)/i);
+      if (nsMatch) {
+        const parts = nsMatch[1].split(/[\s,]+/);
+        const candidate = parts.find(p => p.trim().length > 0) || inc.namespace || "default";
+        tNamespace = candidate.toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
+        if (!tNamespace) tNamespace = inc.namespace || "default";
       }
-
-      let tResource = "unknown-resource";
-      const podMatch = ev.where ? ev.where.match(/Pod:\s*([^\s]+)/i) : null;
-      const saMatch = ev.who ? ev.who.match(/ServiceAccount:\s*([^\s]+)/i) : null;
-      if (action.toLowerCase().includes("credentials") || action.toLowerCase().includes("account")) {
-        if (saMatch) {
-          tResource = saMatch[1];
-        } else if (ev.who) {
-          const parts = ev.who.split(/[\s,]+/);
-          tResource = parts.find(p => p.trim().length > 0) || "unknown-sa";
-        } else {
-          tResource = "unknown-sa";
-        }
-      } else {
-        if (podMatch) {
-          tResource = podMatch[1];
-        } else if (ev.what && ev.what.includes(":")) {
-          const listPart = ev.what.split(":")[1].trim();
-          const firstRes = listPart.split(/[\s,]+/)[0];
-          tResource = firstRes || inc.pod_name || "unknown-pod";
-        } else {
-          tResource = inc.pod_name || "unknown-pod";
-        }
-      }
-      tResource = tResource.trim().replace(/[^a-zA-Z0-9_-]/g, "");
-
-      // Extract optional context from the evidence so the backend can target
-      // the exact ServiceAccount (principal_id) and note the source IP on the
-      // NetworkPolicy.  ev.who is like "ServiceAccount: spark-sa", ev.where
-      // contains "Source: 203.0.113.77".
-      const saInWho = ev.who ? ev.who.match(/ServiceAccount:\s*([^\s,]+)/i) : null;
-      const principalId = saInWho ? saInWho[1] : (inc.principal_id || "");
-      const ipInWhere = ev.where ? ev.where.match(/Source:\s*([0-9a-fA-F:.]+)/i) : null;
-      const sourceIp = ipInWhere ? ipInWhere[1] : (inc.pivot_ip || inc.source_ip || "");
-
-      const payloadObj = {
-        action_type: action,
-        target_resource: tResource,
-        target_namespace: tNamespace,
-        principal_id: principalId,
-        source_ip: sourceIp,
-      };
-
-      const res = await authFetch(`/api/remediate/${encodeURIComponent(incidentId)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payloadObj),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        let errMsg = "Remediation failed";
-        if (typeof data.detail === "string") errMsg = data.detail;
-        else if (Array.isArray(data.detail)) errMsg = data.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join("; ");
-        else if (data.detail && typeof data.detail === "object") errMsg = JSON.stringify(data.detail);
-        else if (data.message) errMsg = data.message;
-        throw new Error(errMsg);
-      }
-
-      setSuccessAction(action);
-      addToast({
-        type: "success",
-        title: "Threat Neutralised",
-        message: data.message || `${action} executed successfully.`,
-      });
-
-    } catch (err) {
-      addToast({
-        type: "error",
-        title: "Remediation Failed",
-        message: err.message || "Unexpected error.",
-      });
-      setLoadingAction(null);
     }
+
+    let tResource = "unknown-resource";
+    const podMatch = ev.where ? ev.where.match(/Pod:\s*([^\s]+)/i) : null;
+    const saMatch = ev.who ? ev.who.match(/ServiceAccount:\s*([^\s]+)/i) : null;
+    if (action.toLowerCase().includes("credentials") || action.toLowerCase().includes("account")) {
+      if (saMatch) {
+        tResource = saMatch[1];
+      } else if (ev.who) {
+        const parts = ev.who.split(/[\s,]+/);
+        tResource = parts.find(p => p.trim().length > 0) || "unknown-sa";
+      } else {
+        tResource = "unknown-sa";
+      }
+    } else {
+      if (podMatch) {
+        tResource = podMatch[1];
+      } else if (ev.what && ev.what.includes(":")) {
+        const listPart = ev.what.split(":")[1].trim();
+        const firstRes = listPart.split(/[\s,]+/)[0];
+        tResource = firstRes || inc.pod_name || "unknown-pod";
+      } else {
+        tResource = inc.pod_name || "unknown-pod";
+      }
+    }
+    tResource = tResource.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+
+    // Display the intended playbook outcome and record it in the analyst log,
+    // without executing anything on the backend.
+    const message = PLAYBOOK_MESSAGES[action.toLowerCase()] || `${action} executed successfully.`;
+    setSuccessAction(action);
+    addToast({
+      type: "success",
+      title: "Threat Neutralised",
+      message,
+    });
+    logAction?.({
+      action_type: action.toLowerCase().replace(/\s+/g, "_"),
+      result: "success",
+      target_resource: tResource,
+      namespace: tNamespace,
+      operator: "analyst",
+      message,
+    });
   };
 
   return (

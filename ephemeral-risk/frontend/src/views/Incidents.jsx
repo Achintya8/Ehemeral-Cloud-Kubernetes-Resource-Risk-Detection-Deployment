@@ -4,7 +4,7 @@ import IncidentDetailModal from '../components/IncidentDetailModal';
 import AnimatedList from '../components/ui/AnimatedList';
 
 export default function Incidents({ appState }) {
-  const { incidents, authFetch, addToast } = appState;
+  const { incidents, authFetch, addToast, logAction } = appState;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState(null);
@@ -49,7 +49,7 @@ export default function Incidents({ appState }) {
             items={incidents}
             renderItem={(inc, i, isSelected) => (
               <div style={{ marginBottom: '16px' }}>
-                <IncidentCard key={inc.incident_id} inc={inc} idx={i} authFetch={authFetch} addToast={addToast} onDrillDown={handleDrillDown} />
+                <IncidentCard key={inc.incident_id} inc={inc} idx={i} authFetch={authFetch} addToast={addToast} logAction={logAction} onDrillDown={handleDrillDown} />
               </div>
             )}
           />
@@ -62,6 +62,7 @@ export default function Incidents({ appState }) {
         incidentSeed={selectedIncident}
         authFetch={authFetch}
         addToast={addToast}
+        logAction={logAction}
         onClose={handleCloseModal}
       />
     </div>
