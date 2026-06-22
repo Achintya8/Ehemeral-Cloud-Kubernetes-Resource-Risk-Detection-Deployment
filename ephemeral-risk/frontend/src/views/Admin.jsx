@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import PipelineModal from '../components/PipelineModal';
+import ReportGenerator from '../components/ReportGenerator';
 
 export default function Admin({ appState }) {
   const { pipelines, health, dbStats, modelStats, refreshHealth, ngrokPublicUrl } = appState;
@@ -38,6 +39,10 @@ export default function Admin({ appState }) {
           Register Pipeline
         </button>
       </div>
+
+      <section style={{ width: '100%', marginBottom: '24px' }}>
+        <ReportGenerator appState={appState} />
+      </section>
 
       <div className="admin-grid">
         <div className="metric-card t-red">

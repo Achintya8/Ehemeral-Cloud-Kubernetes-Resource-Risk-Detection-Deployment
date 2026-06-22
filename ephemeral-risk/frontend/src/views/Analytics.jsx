@@ -1,8 +1,9 @@
 import AnalyticsBurstChart from '../components/charts/AnalyticsBurstChart';
 import TtlChart from '../components/charts/TtlChart';
+import ReportGenerator from '../components/ReportGenerator';
 
 export default function Analytics({ appState }) {
-  const { events, ttlDistribution, modelStats } = appState;
+  const { role, events, ttlDistribution, modelStats } = appState;
 
   // const buckets = getRollingSeries().values;
   // const evPerMin = buckets.reduce((s, v) => s + v, 0);
@@ -54,6 +55,12 @@ export default function Analytics({ appState }) {
         <div className="breadcrumb"></div>
         <h2>Analytics &amp; Telemetry</h2>
       </div>
+
+      {role === 'admin' && (
+        <section style={{ width: '100%', marginBottom: '20px' }}>
+          <ReportGenerator appState={appState} />
+        </section>
+      )}
 
       <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
         <div className="metric-card t-orange">

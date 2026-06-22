@@ -9,7 +9,9 @@ import Events from './views/Events';
 import Incidents from './views/Incidents';
 import Analytics from './views/Analytics';
 import Admin from './views/Admin';
+import AnalystHistory from './views/AnalystHistory';
 import Topology from './views/Topology';
+import Users from './views/Users';
 import ToastContainer from './components/ToastContainer';
 import './index.css';
 
@@ -33,6 +35,8 @@ export default function App() {
           {currentView === 'analytics' && <Analytics appState={appState} />}
           {currentView === 'topology' && <Topology appState={appState} />}
           {currentView === 'admin' && <Admin appState={appState} />}
+          {currentView === 'history' && <AnalystHistory appState={appState} />}
+          {currentView === 'users' && <Users appState={appState} />}
         </main>
         <ToastContainer toasts={appState.toasts} />
       </SidebarInset>

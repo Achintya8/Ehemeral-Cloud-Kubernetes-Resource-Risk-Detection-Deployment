@@ -33,14 +33,14 @@ export default function LoginView({ doLogin }) {
           </div>
           <div className="login-brand-text">
             <h1>Societe Generale</h1>
-            <h2>Cybersecurity Operations</h2>
+            <h2 style={{ fontSize: '32px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: '1.1', color: 'var(--sg-black)', margin: 0 }}>k8strl</h2>
           </div>
         </div>
 
         <div className="login-card">
           <div className="login-card-header">
             <h3>Sign In</h3>
-            <p>Access to the Ephemeral Risk Control console is restricted to authorised personnel.</p>
+            <p>Access to the k8strl console is restricted to authorised personnel.</p>
           </div>
           <div className="login-divider"></div>
           <form id="login-form" autoComplete="on" onSubmit={handleSubmit}>

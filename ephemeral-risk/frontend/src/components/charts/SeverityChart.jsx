@@ -1,6 +1,6 @@
 import { PieChart } from '@mui/x-charts/PieChart';
 
-export default function SeverityChart({ events }) {
+export default function SeverityChart({ events, theme }) {
   const critical = events.filter(e => String(e.severity).toUpperCase() === "CRITICAL").length;
   const high     = events.filter(e => String(e.severity).toUpperCase() === "HIGH").length;
   const medium   = events.filter(e => String(e.severity).toUpperCase() === "MEDIUM").length;
@@ -13,12 +13,12 @@ export default function SeverityChart({ events }) {
     { id: 3, value: info, label: "Info", color: "#3B82F6" },
   ];
 
+  const isDark = theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const emptyColor = isDark ? '#2D2D2D' : '#f5f5f5';
+
   const total = critical + high + medium + info;
-  // If total is 0, we can give a dummy value so it renders a grey circle, but still keeps labels?
-  // Actually, PieChart can handle 0 values. We'll add a dummy series or just pass rawData.
-  // If all values are 0, PieChart might not render anything. We can add a grey background or let it be blank.
   const chartData = total === 0
-    ? rawData.map(d => ({ ...d, value: 0.0001, color: '#f5f5f5' })) // tiny value to show empty chart with labels
+    ? rawData.map(d => ({ ...d, value: 0.0001, color: emptyColor })) // tiny value to show empty chart with labels
     : rawData;
 
   return (
@@ -46,9 +46,10 @@ export default function SeverityChart({ events }) {
             itemMarkWidth: 10,
             itemMarkHeight: 10,
             labelStyle: {
-              fill: "#525252",
+              fill: isDark ? "#CFCFCF" : "#525252",
               fontSize: 11,
               fontWeight: "bold",
+              fontFamily: "'JetBrains Mono', monospace",
             }
           },
         }}

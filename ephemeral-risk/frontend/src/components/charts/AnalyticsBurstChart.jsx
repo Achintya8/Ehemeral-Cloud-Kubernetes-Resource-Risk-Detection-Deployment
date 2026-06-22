@@ -2,14 +2,16 @@ import { useEffect, useRef } from 'react';
 import { Chart, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler } from 'chart.js';
 
 Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler);
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
 
 export default function AnalyticsBurstChart({ appState }) {
   const chartRef = useRef(null);
   const canvasRef = useRef(null);
-  const { trigger, getRollingSeries } = appState;
+  const { trigger, getRollingSeries, theme } = appState;
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    const isDark = theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     const ctx = canvasRef.current.getContext('2d');
 
     // Create professional brand gradient fill
@@ -51,7 +53,7 @@ export default function AnalyticsBurstChart({ appState }) {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: 'rgba(26, 26, 26, 0.95)',
+            backgroundColor: isDark ? 'rgba(34, 34, 34, 0.95)' : 'rgba(26, 26, 26, 0.95)',
             titleColor: '#FFFFFF',
             bodyColor: '#FFFFFF',
             titleFont: { family: "'JetBrains Mono', monospace", size: 10, weight: 'bold' },
@@ -59,7 +61,7 @@ export default function AnalyticsBurstChart({ appState }) {
             padding: 8,
             cornerRadius: 4,
             displayColors: false,
-            borderColor: 'rgba(227, 6, 19, 0.4)',
+            borderColor: isDark ? 'rgba(227, 6, 19, 0.6)' : 'rgba(227, 6, 19, 0.4)',
             borderWidth: 1,
             callbacks: {
               label: (context) => ` Rate: ${context.parsed.y} events/s`
@@ -70,7 +72,7 @@ export default function AnalyticsBurstChart({ appState }) {
           x: {
             grid: { display: false },
             ticks: {
-              color: "#A0A0A0",
+              color: isDark ? "#8E8E8E" : "#A0A0A0",
               font: { family: "'JetBrains Mono', monospace", size: 9 },
               maxTicksLimit: 10,
               maxRotation: 0
@@ -80,11 +82,11 @@ export default function AnalyticsBurstChart({ appState }) {
             beginAtZero: true,
             suggestedMax: 5,
             grid: {
-              color: "rgba(0, 0, 0, 0.05)",
+              color: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)",
               drawTicks: false
             },
             ticks: {
-              color: "#A0A0A0",
+              color: isDark ? "#8E8E8E" : "#A0A0A0",
               font: { family: "'JetBrains Mono', monospace", size: 9 },
               precision: 0,
               padding: 8
@@ -97,7 +99,7 @@ export default function AnalyticsBurstChart({ appState }) {
     return () => {
       if (chartRef.current) chartRef.current.destroy();
     };
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     if (!chartRef.current) return;

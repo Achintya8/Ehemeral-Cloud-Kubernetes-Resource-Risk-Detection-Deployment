@@ -15,6 +15,7 @@ export function useAppLogic() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [showAnomalyOnly, setShowAnomalyOnly] = useState(false);
   const [pipelines, setPipelines] = useState([]);
+  const [users, setUsers] = useState([]);
   
   // Stats
   const [dbStats, setDbStats] = useState({});
@@ -34,12 +35,40 @@ export function useAppLogic() {
   const [actionLog, setActionLog] = useState([]);
   const [ngrokPublicUrl, setNgrokPublicUrl] = useState(null);
 
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'system');
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const applyTheme = () => {
+      const isDark = theme === 'dark' || (theme === 'system' && mediaQuery.matches);
+      if (isDark) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    };
+
+    applyTheme();
+    localStorage.setItem('theme', theme);
+
+    if (theme === 'system') {
+      mediaQuery.addEventListener('change', applyTheme);
+      return () => mediaQuery.removeEventListener('change', applyTheme);
+    }
+  }, [theme]);
+
   const addToast = useCallback((toast) => {
     const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, ...toast }]);
+    setToasts(prev => {
+      const next = [...prev, { id, ...toast }];
+      if (next.length > 3) return next.slice(next.length - 3);
+      return next;
+    });
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, toast.duration || 4500);
+    }, toast.duration || 4000);
   }, []);
 
   const bucketEvent = useCallback((ts) => {
@@ -211,6 +240,17 @@ export function useAppLogic() {
     } catch {}
   }, [authFetch]);
 
+  const refreshUsers = useCallback(async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/api/users`);
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data.users || []);
+      }
+    } catch {}
+  }, [authFetch]);
+
+
   const refreshHealth = useCallback(async () => {
     try {
       const res = await authFetch(`${API_BASE}/api/health`);
@@ -233,8 +273,9 @@ export function useAppLogic() {
     if (role === 'admin') {
       refreshPipelines();
       refreshHealth();
+      refreshUsers();
     }
-  }, [loadInitialState, connectStream, role, refreshPipelines, refreshHealth]);
+  }, [loadInitialState, connectStream, role, refreshPipelines, refreshHealth, refreshUsers]);
 
   const doLogin = async (username, password) => {
     const res = await fetch(`${API_BASE}/login`, {
@@ -355,6 +396,8 @@ export function useAppLogic() {
   return {
     token, user, role, events, incidents, streamStatus, currentView, setCurrentView,
     showAnomalyOnly, setShowAnomalyOnly, pipelines, refreshPipelines,
+    users, refreshUsers,
+    theme, setTheme,
     dbStats, modelStats, ttlDistribution, health, refreshHealth,
     blocklist, releaseBlocklist,
     actionLog,

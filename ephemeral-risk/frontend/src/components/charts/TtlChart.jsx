@@ -21,9 +21,13 @@ export default function TtlChart({ appState }) {
     color: TTL_COLORS[index % TTL_COLORS.length]
   }));
 
+  const theme = appState?.theme;
+  const isDark = theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const emptyColor = isDark ? '#2D2D2D' : '#f5f5f5';
+
   const total = counts.reduce((a, b) => a + b, 0);
   const chartData = total === 0
-    ? data.map(d => ({ ...d, value: 0.0001, color: '#f5f5f5' }))
+    ? data.map(d => ({ ...d, value: 0.0001, color: emptyColor }))
     : data;
 
   const longLivedCount = (counts[4] || 0) + (counts[5] || 0);
@@ -72,8 +76,8 @@ export default function TtlChart({ appState }) {
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--sg-grey-400)', textTransform: 'uppercase' }}>Tracked</span>
-          <span style={{ fontSize: '24px', fontWeight: 800, color: 'var(--sg-black)', fontFamily: 'monospace', lineHeight: 1.1 }}>{total}</span>
+          <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--sg-grey-400)', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>Tracked</span>
+          <span style={{ fontSize: '24px', fontWeight: 800, color: 'var(--sg-black)', fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.1 }}>{total}</span>
         </div>
       </div>
 
@@ -83,12 +87,12 @@ export default function TtlChart({ appState }) {
         {/* Churn and Long-lived Rates */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-            <span style={{ color: 'var(--sg-grey-500)', fontWeight: 'bold' }}>Churn &lt;1m:</span>
-            <span style={{ fontWeight: 800, color: '#E97C00', fontFamily: 'monospace' }}>{churnRate}%</span>
+            <span style={{ color: 'var(--sg-grey-500)', fontWeight: 'bold', fontFamily: "'JetBrains Mono', monospace" }}>Churn &lt;1m:</span>
+            <span style={{ fontWeight: 800, color: '#E97C00', fontFamily: "'JetBrains Mono', monospace" }}>{churnRate}%</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-            <span style={{ color: 'var(--sg-grey-500)', fontWeight: 'bold' }}>Long-lived:</span>
-            <span style={{ fontWeight: 800, color: '#E30613', fontFamily: 'monospace' }}>{longLivedPct}%</span>
+            <span style={{ color: 'var(--sg-grey-500)', fontWeight: 'bold', fontFamily: "'JetBrains Mono', monospace" }}>Long-lived:</span>
+            <span style={{ fontWeight: 800, color: '#E30613', fontFamily: "'JetBrains Mono', monospace" }}>{longLivedPct}%</span>
           </div>
         </div>
 
@@ -100,8 +104,8 @@ export default function TtlChart({ appState }) {
           {labels.map((label, index) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: TTL_COLORS[index % TTL_COLORS.length], display: 'inline-block', flexShrink: 0 }} />
-              <span style={{ color: '#525252', fontWeight: 'bold' }}>{label}</span>
-              <span style={{ color: '#A0A0A0', marginLeft: 'auto', fontFamily: 'monospace' }}>({counts[index] || 0})</span>
+              <span style={{ color: isDark ? '#CFCFCF' : '#525252', fontWeight: 'bold', fontFamily: "'JetBrains Mono', monospace" }}>{label}</span>
+              <span style={{ color: '#A0A0A0', marginLeft: 'auto', fontFamily: "'JetBrains Mono', monospace" }}>({counts[index] || 0})</span>
             </div>
           ))}
         </div>

@@ -11,10 +11,10 @@ import {
   SidebarGroupContent,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Activity, AlertTriangle, BarChart3, Box, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Activity, AlertTriangle, BarChart3, Box, Settings, LogOut, History, Users, Sun, Moon, Laptop } from "lucide-react";
 
 export function AppSidebar({ appState }) {
-  const { currentView, setCurrentView, role, doLogout, events = [], streamStatus, incidents = [] } = appState;
+  const { currentView, setCurrentView, role, doLogout, events = [], streamStatus, incidents = [], user, theme, setTheme } = appState;
   
   const unreadEvents = events.filter(e => e.is_anomaly).length;
   const unreadIncidents = incidents.length;
@@ -33,9 +33,8 @@ export function AppSidebar({ appState }) {
                 <div className="flex-1 bg-[#E30613] w-full" />
                 <div className="flex-1 bg-[#1A1A1A] w-full" />
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight ml-2">
-                <span className="truncate font-extrabold tracking-[0.22em] text-[9px] uppercase text-gray-400">Ephemeral Risk</span>
-                <span className="truncate font-bold text-[13px] text-gray-900 leading-tight">Sentry Platform</span>
+              <div className="flex flex-1 items-center ml-2">
+                <span className="font-black tracking-[0.05em] text-[20px] uppercase text-gray-900 leading-none">k8strl</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -98,7 +97,19 @@ export function AppSidebar({ appState }) {
                 <SidebarMenuItem>
                   <SidebarMenuButton isActive={currentView === 'admin'} onClick={() => handleNav('admin')} className="font-medium text-[13px]">
                     <Settings />
-                    <span>Pipeline Admin</span>
+                    <span>Pipelines</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton isActive={currentView === 'history'} onClick={() => handleNav('history')} className="font-medium text-[13px]">
+                    <History />
+                    <span>Analyst History</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton isActive={currentView === 'users'} onClick={() => handleNav('users')} className="font-medium text-[13px]">
+                    <Users />
+                    <span>Analyst Accounts</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -107,12 +118,53 @@ export function AppSidebar({ appState }) {
         )}
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-gray-200 dark:border-zinc-800 p-3 group-data-[collapsible=icon]:p-2">
+        <div className="flex items-center justify-between mb-2 px-1 group-data-[collapsible=icon]:hidden">
+          <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 dark:text-zinc-500">Theme</span>
+          <div className="flex items-center bg-gray-100 dark:bg-zinc-900 rounded-lg p-0.5 border border-gray-200 dark:border-zinc-800">
+            <button
+              onClick={() => setTheme('light')}
+              className={`p-1 rounded-md transition-colors ${theme === 'light' ? 'bg-white dark:bg-zinc-800 text-amber-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+              title="Light Theme"
+            >
+              <Sun size={12} />
+            </button>
+            <button
+              onClick={() => setTheme('dark')}
+              className={`p-1 rounded-md transition-colors ${theme === 'dark' ? 'bg-white dark:bg-zinc-800 text-blue-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+              title="Dark Theme"
+            >
+              <Moon size={12} />
+            </button>
+            <button
+              onClick={() => setTheme('system')}
+              className={`p-1 rounded-md transition-colors ${theme === 'system' ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+              title="Device Theme"
+            >
+              <Laptop size={12} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 border-t border-gray-100 dark:border-zinc-800 pt-2.5 px-1 py-1.5 mb-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-t-0 group-data-[collapsible=icon]:pt-0 group-data-[collapsible=icon]:mb-0">
+          <div className="w-8 h-8 rounded-full bg-[#E30613] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+            {(user?.username || "?").charAt(0).toUpperCase()}
+          </div>
+          <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden">
+            <span className="text-xs font-bold text-gray-900 dark:text-white truncate">{user?.username}</span>
+            <span className="text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-widest leading-none mt-0.5">{role === 'admin' ? 'System Admin' : 'Analyst'}</span>
+          </div>
+        </div>
+
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={doLogout} className="text-gray-600 hover:text-black font-medium text-[13px] justify-center gap-2">
+            <SidebarMenuButton 
+              onClick={doLogout} 
+              className="text-gray-600 dark:text-zinc-400 hover:text-black dark:hover:text-white font-medium text-[13px] justify-center gap-2 border border-gray-200 dark:border-zinc-800 rounded-md py-2 mt-1"
+              title="Sign Out"
+            >
               <LogOut size={14} />
-              <span>Sign Out</span>
+              <span className="group-data-[collapsible=icon]:hidden">Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

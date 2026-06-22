@@ -13,6 +13,7 @@ export default function IncidentCard({ inc, idx, authFetch, addToast, onDrillDow
 
   const [loadingAction, setLoadingAction] = useState(null);
   const [successAction, setSuccessAction] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleAction = async (action) => {
     setLoadingAction(action);
@@ -124,49 +125,71 @@ export default function IncidentCard({ inc, idx, authFetch, addToast, onDrillDow
             style={{fontSize:'11px', padding:'4px 12px', lineHeight:'1.2'}}>
             Drill Down
           </button>
-          <span style={{fontSize:'11px', color:'var(--sg-grey-400)'}}>Correlated campaign</span>
+          <button type="button" onClick={() => setIsExpanded(!isExpanded)} style={{
+            background: 'none', border: '1px solid var(--sg-grey-200)', borderRadius: 'var(--radius)',
+            padding: '4px 8px', fontSize: '11px', color: 'var(--sg-grey-600)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '4px'
+          }}>
+            {isExpanded ? 'Collapse' : 'Expand'}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s'}}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
         </div>
       </div>
-      <div className="incident-body">
-        <div className="evidence-grid">
-          <div className="evidence-cell"><div className="evidence-label">WHO</div><div className="evidence-value">{ev.who || "Identity unavailable"}</div></div>
-          <div className="evidence-cell"><div className="evidence-label">WHAT</div><div className="evidence-value">{ev.what || "Resource unavailable"}</div></div>
-          <div className="evidence-cell"><div className="evidence-label">WHEN</div><div className="evidence-value">{ev.when || "Time unavailable"}</div></div>
-          <div className="evidence-cell"><div className="evidence-label">WHERE</div><div className="evidence-value">{ev.where || "Location unavailable"}</div></div>
-        </div>
-        <div className="threat-context">
-          <div className="threat-label">Threat context · Why this is risky</div>
-          <div className="threat-text">{ev.why_risky || "Raw anomaly detected. Downstream correlation unavailable."}</div>
-        </div>
-      </div>
-      <div className="incident-footer">
-        <div style={{fontSize:'10px', fontWeight:800, letterSpacing:'0.18em', textTransform:'uppercase', color:'var(--sg-grey-400)', marginBottom:'10px'}}>Recommended response</div>
-        <div style={{display:'flex', flexWrap:'wrap', gap:'8px'}}>
-          {(inc.clear_actions || []).map((action, i) => {
-            const isLoading = loadingAction === action;
-            const isSuccess = successAction === action;
-            const isDisabled = loadingAction != null || successAction != null;
+      
+      {isExpanded && (
+        <>
+          <div className="incident-body">
+            <div className="evidence-grid">
+              <div className="evidence-cell"><div className="evidence-label">WHO</div><div className="evidence-value">{ev.who || "Identity unavailable"}</div></div>
+              <div className="evidence-cell"><div className="evidence-label">WHAT</div><div className="evidence-value">{ev.what || "Resource unavailable"}</div></div>
+              <div className="evidence-cell"><div className="evidence-label">WHEN</div><div className="evidence-value">{ev.when || "Time unavailable"}</div></div>
+              <div className="evidence-cell"><div className="evidence-label">WHERE</div><div className="evidence-value">{ev.where || "Location unavailable"}</div></div>
+            </div>
+          </div>
+          <div className="incident-footer">
+        {severity === "CRITICAL" ? (
+          <>
+            <div style={{fontSize:'10px', fontWeight:800, letterSpacing:'0.18em', textTransform:'uppercase', color:'#15803D', marginBottom:'10px'}}>Automated Response Applied</div>
+            <div style={{background: '#F0FFF4', border: '1px solid #BBF7D0', padding: '10px 14px', borderRadius: 'var(--radius)', color: '#065F46', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Zero-trust containment protocols automatically applied. Pod isolated, network quarantine enforced, and node cordoned.</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{fontSize:'10px', fontWeight:800, letterSpacing:'0.18em', textTransform:'uppercase', color:'var(--sg-grey-400)', marginBottom:'10px'}}>Recommended response</div>
+            <div style={{display:'flex', flexWrap:'wrap', gap:'8px'}}>
+              {(inc.clear_actions || []).map((action, i) => {
+                const isLoading = loadingAction === action;
+                const isSuccess = successAction === action;
+                const isDisabled = loadingAction != null || successAction != null;
 
-            return (
-              <button 
-                key={action}
-                type="button"
-                className={`action-btn ${i === 0 ? "action-primary" : ""}`}
-                onClick={() => handleAction(action)}
-                disabled={isDisabled}
-                style={{
-                  opacity: isDisabled && !isLoading && !isSuccess ? '0.4' : '1',
-                  ...(isSuccess ? { borderColor: '#A7F3D0', background: '#ECFDF5', color: '#065F46' } : {})
-                }}
-              >
-                {isLoading && SPINNER_SVG}
-                {isSuccess && SUCCESS_SVG}
-                {isLoading ? 'Executing…' : isSuccess ? 'Executed' : action}
-              </button>
-            );
-          })}
-        </div>
+                return (
+                  <button 
+                    key={action}
+                    type="button"
+                    className={`action-btn ${i === 0 ? "action-primary" : ""}`}
+                    onClick={() => handleAction(action)}
+                    disabled={isDisabled}
+                    style={{
+                      opacity: isDisabled && !isLoading && !isSuccess ? '0.4' : '1',
+                      ...(isSuccess ? { borderColor: '#A7F3D0', background: '#ECFDF5', color: '#065F46' } : {})
+                    }}
+                  >
+                    {isLoading && SPINNER_SVG}
+                    {isSuccess && SUCCESS_SVG}
+                    {isLoading ? 'Executing…' : isSuccess ? 'Executed' : action}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
+      </>
+      )}
     </article>
   );
 }

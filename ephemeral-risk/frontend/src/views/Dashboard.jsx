@@ -6,7 +6,7 @@ import AnimatedList from '../components/ui/AnimatedList';
 import { fmt, sevStyle } from '../utils';
 
 export default function Dashboard({ appState }) {
-  const { events, incidents, authFetch, addToast, dbStats } = appState;
+  const { role, events, incidents, authFetch, addToast, dbStats, modelStats, theme } = appState;
   const [showAnomalyOnly, setShowAnomalyOnly] = useState(false);
 
   const totalEvents = dbStats?.events ?? events.length;
@@ -76,7 +76,7 @@ export default function Dashboard({ appState }) {
             </div>
           </div>
           <div className="chart-wrap" style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center'}}>
-            <SeverityChart events={events} />
+            <SeverityChart events={events} theme={theme} />
           </div>
         </div>
       </section>
