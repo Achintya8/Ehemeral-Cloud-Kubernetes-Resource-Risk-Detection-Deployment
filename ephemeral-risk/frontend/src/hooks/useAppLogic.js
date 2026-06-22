@@ -378,6 +378,23 @@ export function useAppLogic() {
     return { labels, values };
   }, []);
 
+  // Append an analyst action to the activity log shown in AnalystHistory.
+  // Used for client-side (simulated) remediation/feedback so the action is
+  // recorded in the admin log without requiring the backend to execute it.
+  const logAction = useCallback((entry) => {
+    const full = {
+      id: entry.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      action_type: entry.action_type || 'action',
+      result: entry.result || 'success',
+      target_resource: entry.target_resource || '—',
+      namespace: entry.namespace || 'default',
+      message: entry.message || '',
+      operator: entry.operator || user?.username || 'analyst',
+      created_at: entry.created_at || new Date().toISOString(),
+    };
+    setActionLog(prev => [full, ...prev].slice(0, 100));
+  }, [user]);
+
   const releaseBlocklist = useCallback(async (principalId) => {
     try {
       const res = await authFetch(`${API_BASE}/api/blocklist/release/${encodeURIComponent(principalId)}`, {
@@ -404,7 +421,7 @@ export function useAppLogic() {
     theme, setTheme,
     dbStats, modelStats, ttlDistribution, health, refreshHealth,
     blocklist, releaseBlocklist,
-    actionLog,
+    actionLog, logAction,
     ngrokPublicUrl,
     doLogin, doLogout, authFetch, addToast, toasts, setIncidents,
     getRollingSeries, trigger, peakBurstRef
