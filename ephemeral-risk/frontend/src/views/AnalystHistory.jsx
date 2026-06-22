@@ -84,8 +84,7 @@ export default function AnalystHistory({ appState }) {
               const dotColor = isErr ? 'var(--sg-red)' : '#15803D';
               const actionLabel = (entry.action_type || 'action').split('_').map(w => w[0] && w[0].toUpperCase() + w.slice(1)).join(' ');
               return (
-                <div key={entry.id} style={{
-                  display: 'flex', gap: '10px', alignItems: 'flex-start',
+                <div key={entry.id} className="history-row" style={{
                   padding: '12px 14px', borderRadius: 'var(--radius)',
                   background: 'var(--sg-white)', border: '1px solid var(--sg-grey-200)',
                 }}>
@@ -115,7 +114,7 @@ export default function AnalystHistory({ appState }) {
                       </div>
                     )}
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div className="history-row-metadata">
                     <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--sg-grey-600)' }}>Operator: {entry.operator || 'system'}</div>
                     <div style={{ fontSize: '11px', color: 'var(--sg-grey-400)', fontFamily: "'JetBrains Mono', monospace", marginTop: '4px' }}>
                       {(entry.created_at || '').slice(0, 16).replace('T', ' ')}

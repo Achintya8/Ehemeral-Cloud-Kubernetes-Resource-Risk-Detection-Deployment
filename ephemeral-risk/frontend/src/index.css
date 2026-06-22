@@ -1122,4 +1122,177 @@ select option {
   color: var(--sg-black) !important;
 }
 
+/* ═══════════════════════════════════════
+   MOBILE RESPONSIVENESS AND UTILITY OVERRIDES
+   ═══════════════════════════════════════ */
+
+/* Global page-view adjustments */
+@media (max-width: 768px) {
+  .page-view {
+    padding: 16px !important;
+    gap: 16px !important;
+  }
+}
+
+/* Metrics Grid Stack */
+@media (max-width: 480px) {
+  .metrics-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .analytics-metrics-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* 3D Topology Responsive Stack */
+.topology-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+  min-height: 0;
+}
+
+.topology-left-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.topology-viewport {
+  flex: 1;
+  position: relative;
+  min-height: 200px;
+}
+
+.topology-log-pane {
+  width: 340px;
+  flex-shrink: 0;
+  background: #0F0F0F;
+  border-left: 1px solid #2D2D2D;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  max-height: 100%;
+}
+
+@media (max-width: 768px) {
+  .topology-body {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .topology-left-pane {
+    flex: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  .topology-viewport {
+    height: 350px !important;
+    min-height: 350px !important;
+    flex: none !important;
+  }
+  .topology-log-pane {
+    width: 100% !important;
+    max-height: none !important;
+    border-left: none !important;
+    border-top: 1px solid #2D2D2D !important;
+    flex: none !important;
+  }
+}
+
+/* Events Stream Responsive Classes */
+.events-item-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.events-row-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.events-row-cols {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.events-col-resource {
+  flex: 1;
+  min-width: 0;
+}
+
+.events-col-principal {
+  flex: 1;
+  min-width: 0;
+}
+
+.events-col-namespace {
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.events-col-risk {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: 80px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .events-row-cols {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .events-col-resource,
+  .events-col-principal,
+  .events-col-namespace,
+  .events-col-risk {
+    width: 100% !important;
+    flex: none !important;
+    flex-shrink: 0 !important;
+  }
+  .events-col-risk {
+    align-items: flex-start !important;
+  }
+}
+
+/* Analyst History Activity Log Stacking */
+.history-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.history-row-metadata {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .history-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .history-row-metadata {
+    text-align: left !important;
+    border-top: 1px solid var(--sg-grey-200);
+    padding-top: 8px;
+    margin-top: 4px;
+  }
+}
+
+
 

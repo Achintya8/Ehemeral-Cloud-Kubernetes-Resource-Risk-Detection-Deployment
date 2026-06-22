@@ -80,34 +80,34 @@ export default function Events({ appState }) {
                   const sevClass = sev === "CRITICAL" ? "badge-critical" : sev === "HIGH" ? "badge-high" : sev === "MEDIUM" ? "badge-medium" : "badge-info";
                   return (
                     <div className={`item ${isSelected ? 'selected' : ''}`} style={{ display: 'flex', gap: '16px', padding: '16px', alignItems: 'center', margin: '0 0 12px 0' }}>
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div className="events-item-container">
+                        <div className="events-row-header">
                           <span className={`badge ${sevClass}`}>{sev}</span>
                           <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--sg-grey-500)' }}>{fmt(e.timestamp)}</span>
                           <span style={{ fontSize: '12px', color: 'var(--sg-grey-400)' }}>Source IP: <span style={{ color: 'var(--sg-black)', fontFamily: 'monospace' }}>{e.source_ip || "—"}</span></span>
                           {e.is_anomaly && <span className="badge badge-critical" style={{ marginLeft: 'auto' }}>⚠ Anomaly</span>}
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '11px', color: 'var(--sg-grey-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}></div>
+                        <div className="events-row-cols">
+                          <div className="events-col-resource">
+                            <div style={{ fontSize: '11px', color: 'var(--sg-grey-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Resource</div>
                             <div style={{ fontWeight: 600, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--sg-black)' }}>
                               {e.resource_id || e.resource_name || e.pod_name || "—"}
                             </div>
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="events-col-principal">
                             <div style={{ fontSize: '11px', color: 'var(--sg-grey-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Principal</div>
                             <div style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--sg-grey-600)' }}>
                               {e.principal_id || e.actor || "—"}
                             </div>
                           </div>
-                          <div style={{ width: '120px', flexShrink: 0 }}>
+                          <div className="events-col-namespace">
                             <div style={{ fontSize: '11px', color: 'var(--sg-grey-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Namespace</div>
                             <div style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--sg-grey-600)' }}>
                               {e.namespace || "—"}
                             </div>
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '80px', flexShrink: 0 }}>
+                          <div className="events-col-risk">
                             <div style={{ fontSize: '11px', color: 'var(--sg-grey-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Risk</div>
                             <div style={{ fontSize: '20px', fontWeight: score > 40 ? 'bold' : 'normal', color: score > 70 ? '#E30613' : score > 40 ? '#E97C00' : 'var(--sg-grey-400)' }}>
                               {score.toFixed(0)}

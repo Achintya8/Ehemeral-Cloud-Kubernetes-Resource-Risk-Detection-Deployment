@@ -346,11 +346,11 @@ export default function Topology({ appState }) {
       </div>
 
       {/* ── Body: 3D + side panels ───────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', gap: '0', minHeight: 0 }}>
+      <div className="topology-body">
         {/* ── Left: 3D viewport + controls ────────────────────── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0, maxHeight: '100%' }}>
+        <div className="topology-left-pane">
           {/* 3D Viewport */}
-          <div style={{ flex: 1, position: 'relative', minHeight: '200px' }}>
+          <div className="topology-viewport">
             <Pipeline3D
               events={activeEvents}
               incidents={activeIncidents}
@@ -444,17 +444,7 @@ export default function Topology({ appState }) {
         </div>
 
         {/* ── Right: Containment action log ───────────────────── */}
-        <div style={{
-          width: '340px',
-          flexShrink: 0,
-          background: SG.bg,
-          borderLeft: `1px solid ${SG.dark}`,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          minHeight: 0,
-          maxHeight: '100%',
-        }}>
+        <div className="topology-log-pane">
           <div style={{
             padding: '10px 16px', borderBottom: `1px solid ${SG.dark}`,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',

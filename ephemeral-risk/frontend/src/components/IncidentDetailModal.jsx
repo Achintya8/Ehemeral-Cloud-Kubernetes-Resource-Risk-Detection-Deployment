@@ -472,7 +472,7 @@ export default function IncidentDetailModal({ isOpen, incidentId, incidentSeed, 
         {/* footer — remediation actions */}
         {!loading && inc && (
           <div className="modal-footer" style={{ flexShrink: 0, flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
               <button type="button" className="action-btn" onClick={handleClose}>Close</button>
               
               {severity !== "CRITICAL" && (
