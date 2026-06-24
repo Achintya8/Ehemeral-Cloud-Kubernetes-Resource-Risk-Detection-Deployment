@@ -1,0 +1,46 @@
+name: Keep Render Backend Awake
+
+on:
+  schedule:
+    # Run every 10 minutes (Render free tier spins down after 15 minutes of inactivity)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
+
+jobs:
+  ping-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend
+        run: |
+          URL="${{ secrets.RENDER_BACKEND_URL }}"
+          if [ -z "$URL" ]; then
+            echo "=== ERROR ==="
+            echo "RENDER_BACKEND_URL secret is not set in GitHub!"
+            echo "Please configure it by going to your repository on GitHub:"
+            echo "Settings -> Secrets and variables -> Actions -> New repository secret"
+            echo "Name: RENDER_BACKEND_URL"
+            echo "Value: <your-render-backend-url> (e.g., https://your-app.onrender.com)"
+            exit 1
+          fi
+
+          echo "Pinging backend at $URL..."
+          # Send a GET request to the URL. Use -L to follow redirects.
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -L "$URL")
+          echo "HTTP Status Code: $RESPONSE"
+
+          if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 400 ]; then
+            echo "Successfully pinged the backend! App is awake."
+          else
+            echo "Warning: Received unexpected HTTP status code $RESPONSE. Pinging root domain instead..."
+            # Try to ping only the root domain in case they specified a specific subpath that failed
+            ROOT_URL=$(echo "$URL" | grep -oE '^https?://[^/]+')
+            echo "Pinging root: $ROOT_URL"
+            FALLBACK_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -L "$ROOT_URL")
+            echo "Fallback HTTP Status Code: $FALLBACK_RESPONSE"
+            if [ "$FALLBACK_RESPONSE" -ge 200 ] && [ "$FALLBACK_RESPONSE" -lt 400 ]; then
+              echo "Root URL ping successful! App is awake."
+            else
+              echo "Error: Both URL and root URL pings failed."
+              exit 1
+            fi
+          fi
